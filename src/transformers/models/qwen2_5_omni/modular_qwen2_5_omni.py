@@ -3448,18 +3448,21 @@ def kaiser_sinc_filter1d(cutoff, half_width, kernel_size):
         beta = 0.0
 
     kaiser_window = torch.kaiser_window(kernel_size, beta=beta, periodic=False, dtype=torch.float32)
+    # put time_indices on the same device as kaiser_window to start; will also match sinc_filter
+    device = kaiser_window.device
 
     # Compute time indices
     if is_even:
-        time_indices = torch.arange(-half_size, half_size) + 0.5
+        time_indices = torch.arange(-half_size, half_size, device=device) + 0.5
     else:
-        time_indices = torch.arange(kernel_size) - half_size
+        time_indices = torch.arange(kernel_size, device=device) - half_size
 
     # Compute sinc filter
     if cutoff == 0:
         return torch.zeros((1, 1, kernel_size), dtype=torch.float32)  # Ensures correct shape
 
     sinc_filter = torch.sinc(2 * cutoff * time_indices)
+    kaiser_window = kaiser_window.to(sinc_filter.device)  # safety
     normalized_filter = 2 * cutoff * kaiser_window * sinc_filter
 
     # Normalize to ensure sum = 1 (avoid leakage of constant component)
